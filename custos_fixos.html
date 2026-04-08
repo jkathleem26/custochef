@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Custos Fixos - Custo Chef{% endblock %}
+{% block page_title %}Custos Fixos{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header">
+        <span><i class="bi bi-cash-stack me-2"></i><span id="custoFormTitle">Novo Custo Fixo</span></span>
+    </div>
+    <div class="card-body">
+        <form id="formCusto" class="row g-3 align-items-end">
+            <input type="hidden" id="custoId">
+            <div class="col-md-5">
+                <label class="form-label">Descrição</label>
+                <input type="text" class="form-control" id="descricao" placeholder="Ex: Aluguel" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Valor Mensal</label>
+                <input type="number" class="form-control" id="valor" step="0.01" placeholder="0,00" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Vencimento</label>
+                <input type="number" class="form-control" id="dia" min="1" max="31" placeholder="Dia">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary w-100" id="cancelCustoEdit" style="display: none;">Cancelar</button>
+                <button type="submit" class="btn btn-primary w-100">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul me-2"></i>Custos Cadastrados</span>
+        <strong id="total_geral">R$ 0,00</strong>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Vencimento</th>
+                        <th>Valor</th>
+                        <th width="140">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="listaCustos"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let custosData = [];
+
+async function carregarCustos() {
+    const res = await fetch('/api/custos_fixos');
+    custosData = await res.json();
+
+    const tbody = document.getElementById('listaCustos');
+    let total = 0;
+
+    tbody.innerHTML = custosData.map(custo => {
+        total += custo.valor_mensal;
+        return `
+            <tr>
+                <td><strong>${custo.descricao}</strong></td>
+                <td>${custo.dia_vencimento ? 'Dia ' + custo.dia_vencimento : '--'}</td>
+                <td>R$ ${custo.valor_mensal.toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editCusto(${custo.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deletarCusto(${custo.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    if (!custosData.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Nenhum custo fixo cadastrado.</td></tr>';
+    }
+
+    document.getElementById('total_geral').textContent = `R$ ${total.toFixed(2)}`;
+}
+
+function resetCustoForm() {
+    document.getElementById('formCusto').reset();
+    document.getElementById('custoId').value = '';
+    document.getElementById('custoFormTitle').textContent = 'Novo Custo Fixo';
+    document.getElementById('cancelCustoEdit').style.display = 'none';
+}
+
+async function editCusto(id) {
+    const res = await fetch(`/api/custos_fixos/${id}`);
+    const custo = await res.json();
+
+    document.getElementById('custoId').value = custo.id;
+    document.getElementById('descricao').value = custo.descricao || '';
+    document.getElementById('valor').value = custo.valor_mensal || '';
+    document.getElementById('dia').value = custo.dia_vencimento || '';
+    document.getElementById('custoFormTitle').textContent = 'Editar Custo Fixo';
+    document.getElementById('cancelCustoEdit').style.display = 'inline-block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.getElementById('formCusto').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const custoId = document.getElementById('custoId').value;
+    const dados = {
+        descricao: document.getElementById('descricao').value,
+        valor_mensal: parseFloat(document.getElementById('valor').value),
+        dia_vencimento: parseInt(document.getElementById('dia').value, 10) || null
+    };
+
+    const res = await fetch(custoId ? `/api/custos_fixos/${custoId}` : '/api/custos_fixos', {
+        method: custoId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados)
+    });
+
+    if (res.ok) {
+        resetCustoForm();
+        carregarCustos();
+    }
+});
+
+async function deletarCusto(id) {
+    if (!confirm('Remover este custo fixo?')) return;
+    await fetch(`/api/custos_fixos/${id}`, { method: 'DELETE' });
+    if (document.getElementById('custoId').value === String(id)) {
+        resetCustoForm();
+    }
+    carregarCustos();
+}
+
+document.getElementById('cancelCustoEdit').addEventListener('click', resetCustoForm);
+
+carregarCustos();
+</script>
+{% endblock %}

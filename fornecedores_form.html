@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Dados do Fornecedor</title>
+    <style>
+        :root { --primary: #6f42c1; --bg: #f4f7f6; }
+        body { font-family: sans-serif; background: var(--bg); padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { color: var(--primary); text-align: center; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; }
+        .btn-back { display: block; text-align: center; margin-top: 15px; color: #666; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 id="titulo_pagina">Novo Fornecedor</h1>
+    <form id="formFornecedor">
+        <div class="form-group">
+            <label>Nome da Empresa / Vendedor</label>
+            <input type="text" id="nome" required>
+        </div>
+        <div class="form-group">
+            <label>CNPJ</label>
+            <input type="text" id="cnpj">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+                <label>Telefone/WhatsApp</label>
+                <input type="text" id="telefone">
+            </div>
+            <div class="form-group">
+                <label>E-mail</label>
+                <input type="email" id="email">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Endereço Completo</label>
+            <input type="text" id="endereco">
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+            <div class="form-group">
+                <label>Cidade</label>
+                <input type="text" id="cidade">
+            </div>
+            <div class="form-group">
+                <label>Estado (UF)</label>
+                <input type="text" id="estado" maxlength="2">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Observações</label>
+            <textarea id="observacoes" rows="3"></textarea>
+        </div>
+        <button type="submit">Salvar Fornecedor</button>
+        <a href="/fornecedores" class="btn-back">Voltar para a lista</a>
+    </form>
+</div>
+
+<script>
+    // Lógica para detectar se estamos EDITANDO ou CRIANDO
+    const urlParts = window.location.pathname.split('/');
+    const fornecedorId = urlParts.includes('editar') ? urlParts[urlParts.indexOf('editar') - 1] : null;
+
+    if (fornecedorId) {
+        document.getElementById('titulo_pagina').textContent = "Editar Fornecedor";
+        carregarDados(fornecedorId);
+    }
+
+    async function carregarDados(id) {
+        // Você precisaria de uma rota GET /api/fornecedores/<id> no app.py
+        const res = await fetch(`/api/fornecedores`);
+        const todos = await res.json();
+        const f = todos.find(item => item.id == id);
+        
+        if (f) {
+            document.getElementById('nome').value = f.nome || '';
+            document.getElementById('cnpj').value = f.cnpj || '';
+            document.getElementById('telefone').value = f.telefone || '';
+            document.getElementById('email').value = f.email || '';
+            document.getElementById('cidade').value = f.cidade || '';
+            document.getElementById('estado').value = f.estado || '';
+        }
+    }
+
+    document.getElementById('formFornecedor').onsubmit = async (e) => {
+        e.preventDefault();
+        const metodo = fornecedorId ? 'PUT' : 'POST';
+        const url = fornecedorId ? `/api/fornecedores/${fornecedorId}` : '/api/fornecedores';
+
+        const dados = {
+            nome: document.getElementById('nome').value,
+            cnpj: document.getElementById('cnpj').value,
+            telefone: document.getElementById('telefone').value,
+            email: document.getElementById('email').value,
+            cidade: document.getElementById('cidade').value,
+            estado: document.getElementById('estado').value,
+            observacoes: document.getElementById('observacoes').value
+        };
+
+        const res = await fetch(url, {
+            method: metodo,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(dados)
+        });
+
+        if(res.ok) {
+            alert('Salvo com sucesso!');
+            window.location.href = '/fornecedores';
+        }
+    };
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório de Insumos - Custo Chef{% endblock %}
+{% block page_title %}Relatório de Insumos{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="stat-info">
+                <h3 id="totalInsumos">0</h3>
+                <p>Total de Insumos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stat-info">
+                <h3 id="totalBaixo">0</h3>
+                <p>Estoque Baixo</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 text-md-end d-flex align-items-center justify-content-md-end">
+        <a href="/insumos" class="btn btn-outline">
+            <i class="bi bi-arrow-left me-2"></i>Voltar para Insumos
+        </a>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <span><i class="bi bi-clipboard-data me-2"></i>Itens com Estoque Baixo</span>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Insumo</th>
+                        <th>Estoque Atual</th>
+                        <th>Estoque Mínimo</th>
+                        <th>Custo Unitário</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyBaixo"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <span><i class="bi bi-check-circle me-2"></i>Itens com Estoque Ok</span>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Insumo</th>
+                        <th>Estoque Atual</th>
+                        <th>Estoque Mínimo</th>
+                        <th>Custo Unitário</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyOk"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+async function loadRelatorioInsumos() {
+    const response = await fetch('/api/insumos/relatorio');
+    const data = await response.json();
+
+    document.getElementById('totalInsumos').textContent = data.total_insumos;
+    document.getElementById('totalBaixo').textContent = data.total_baixo;
+
+    const renderRows = (items, emptyLabel) => {
+        if (!items.length) {
+            return `<tr><td colspan="4" class="text-center text-muted py-4">${emptyLabel}</td></tr>`;
+        }
+
+        return items.map(item => `
+            <tr>
+                <td><strong>${item.nome}</strong></td>
+                <td>${item.estoque_atual} ${item.unidade}</td>
+                <td>${item.estoque_minimo} ${item.unidade}</td>
+                <td>R$ ${item.custo_unitario.toFixed(4)}</td>
+            </tr>
+        `).join('');
+    };
+
+    document.getElementById('tbodyBaixo').innerHTML = renderRows(data.estoque_baixo, 'Nenhum item com estoque baixo.');
+    document.getElementById('tbodyOk').innerHTML = renderRows(data.estoque_ok, 'Nenhum item disponível.');
+}
+
+loadRelatorioInsumos();
+</script>
+{% endblock %}

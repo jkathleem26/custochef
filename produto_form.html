@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if produto_id else 'Novo' }} Produto - Custo Chef{% endblock %}
+{% block page_title %}{{ 'Editar' if produto_id else 'Precificar Novo' }} Produto{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <span>Dados do Produto</span>
+            </div>
+            <div class="card-body">
+                <form id="formProduto">
+                    <input type="hidden" id="produtoId" value="{{ produto_id or '' }}">
+
+                    <div class="mb-3">
+                        <label class="form-label">Nome do Produto *</label>
+                        <input type="text" class="form-control" id="nome" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Receita Base *</label>
+                        <select class="form-select" id="receita_id" required>
+                            <option value="">Selecione uma receita...</option>
+                        </select>
+                        <small class="text-muted">Ao trocar a receita, o custo real será recalculado.</small>
+                    </div>
+
+                    <hr class="my-4">
+                    <h6 class="mb-3"><i class="bi bi-graph-up me-2"></i>Estratégia de Precificação</h6>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Margem de Lucro (%)</label>
+                            <input type="number" step="0.1" class="form-control" id="margem_lucro" value="30">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Taxa de Venda (%)</label>
+                            <input type="number" step="0.1" class="form-control" id="taxa_venda" value="0">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ou use Markup</label>
+                        <input type="number" step="0.1" class="form-control" id="markup" placeholder="Ex: 2.5">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i><span id="submitLabel">Salvar e Precificar</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <span>Simulação de Preço</span>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">Custo da Receita</small>
+                    <div class="fs-5 fw-bold" id="simCustoReceita">R$ 0,00</div>
+                </div>
+                <hr>
+                <div class="mb-3">
+                    <small class="text-muted">Custo Real Total</small>
+                    <div class="fs-4 fw-bold text-primary" id="simCustoReal">R$ 0,00</div>
+                </div>
+                <hr>
+                <div class="price-card mb-3">
+                    <small>Preço de Venda Sugerido</small>
+                    <h2 id="simPrecoVenda">R$ 0,00</h2>
+                </div>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <small class="text-muted">Lucro Unit.</small>
+                        <div class="fw-bold text-success" id="simLucro">R$ 0,00</div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Margem Real</small>
+                        <div class="fw-bold text-info" id="simMargem">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <h6><i class="bi bi-lightbulb me-2"></i>Dica</h6>
+                <p class="small text-muted mb-0">
+                    Revise produtos com margem abaixo de 20%. Normalmente esse é o primeiro sinal de preço apertado ou custo desatualizado.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let receitasData = [];
+const produtoId = document.getElementById('produtoId').value;
+
+async function loadReceitas() {
+    const response = await fetch('/api/receitas');
+    receitasData = await response.json();
+    renderReceitas();
+
+    if (produtoId) {
+        await loadProduto();
+    }
+}
+
+function renderReceitas(selectedId = '') {
+    const select = document.getElementById('receita_id');
+    select.innerHTML = '<option value="">Selecione uma receita...</option>' +
+        receitasData.map(receita => `
+            <option value="${receita.id}" ${String(receita.id) === String(selectedId) ? 'selected' : ''}>
+                ${receita.nome} (Custo: R$ ${receita.custo_unitario.toFixed(2)})
+            </option>
+        `).join('');
+}
+
+async function loadProduto() {
+    const response = await fetch(`/api/produtos/${produtoId}`);
+    const produto = await response.json();
+
+    document.getElementById('nome').value = produto.nome;
+    document.getElementById('margem_lucro').value = produto.margem_lucro;
+    document.getElementById('markup').value = produto.markup || '';
+    document.getElementById('taxa_venda').value = produto.taxa_venda || 0;
+    renderReceitas(produto.receita_id);
+    document.getElementById('submitLabel').textContent = 'Salvar Alterações';
+    calcularSimulacao();
+}
+
+function calcularSimulacao() {
+    const receitaId = document.getElementById('receita_id').value;
+    if (!receitaId) return;
+
+    const receitaSelecionada = receitasData.find(receita => String(receita.id) === String(receitaId));
+    if (!receitaSelecionada) return;
+
+    const custoReal = receitaSelecionada.custo_unitario;
+    const margem = parseFloat(document.getElementById('margem_lucro').value) || 0;
+    const markup = parseFloat(document.getElementById('markup').value);
+    const taxa = parseFloat(document.getElementById('taxa_venda').value) || 0;
+
+    let preco;
+    if (markup) {
+        preco = custoReal * markup;
+    } else {
+        const margemDecimal = margem / 100;
+        preco = custoReal / (1 - (margemDecimal >= 1 ? 0.99 : margemDecimal));
+    }
+
+    if (taxa > 0) {
+        preco = preco / (1 - taxa / 100);
+    }
+
+    const lucro = preco - custoReal;
+    const margemReal = preco > 0 ? (lucro / preco) * 100 : 0;
+
+    document.getElementById('simCustoReceita').textContent = 'R$ ' + custoReal.toFixed(2);
+    document.getElementById('simCustoReal').textContent = 'R$ ' + custoReal.toFixed(2);
+    document.getElementById('simPrecoVenda').textContent = 'R$ ' + preco.toFixed(2);
+    document.getElementById('simLucro').textContent = 'R$ ' + lucro.toFixed(2);
+    document.getElementById('simMargem').textContent = margemReal.toFixed(1) + '%';
+}
+
+['receita_id', 'margem_lucro', 'markup', 'taxa_venda'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calcularSimulacao);
+    document.getElementById(id).addEventListener('change', calcularSimulacao);
+});
+
+document.getElementById('formProduto').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const data = {
+        nome: document.getElementById('nome').value,
+        receita_id: document.getElementById('receita_id').value,
+        margem_lucro: document.getElementById('margem_lucro').value,
+        markup: document.getElementById('markup').value || null,
+        taxa_venda: document.getElementById('taxa_venda').value
+    };
+
+    const url = produtoId ? `/api/produtos/${produtoId}` : '/api/produtos';
+    const method = produtoId ? 'PUT' : 'POST';
+
+    const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    if (result.success) {
+        window.location.href = '/produtos';
+    }
+});
+
+loadReceitas();
+</script>
+{% endblock %}
