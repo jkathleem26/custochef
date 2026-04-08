@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if receita_id else 'Nova' }} Receita - Custo Chef{% endblock %}
+{% block page_title %}{{ 'Editar' if receita_id else 'Nova' }} Receita{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <span>Dados da Receita</span>
+            </div>
+            <div class="card-body">
+                <form id="formReceita">
+                    <input type="hidden" id="receitaId" value="{{ receita_id or '' }}">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Nome da Receita *</label>
+                            <input type="text" class="form-control" id="nome" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Categoria</label>
+                            <input type="text" class="form-control" id="categoria" placeholder="Ex: Confeitaria">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Rendimento Teórico *</label>
+                            <input type="number" class="form-control" id="rendimento_teorico" value="1" required>
+                            <small class="text-muted">Quantidade que a receita produz</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Perda (%)</label>
+                            <input type="number" step="0.1" class="form-control" id="perda_percentual" value="0">
+                            <small class="text-muted">Perda no processo</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Tempo de Preparo (min)</label>
+                            <input type="number" class="form-control" id="tempo_preparo" value="0">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Salvar Receita
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Gerenciamento de Insumos -->
+        <div class="card mt-4" id="cardInsumos" style="display: none;">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Insumos da Receita</span>
+                <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalAddInsumo">
+                    <i class="bi bi-plus-lg me-2"></i>Adicionar Insumo
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table" id="tableInsumosReceita">
+                        <thead>
+                            <tr>
+                                <th>Insumo</th>
+                                <th>Quantidade</th>
+                                <th>Unidade</th>
+                                <th>Custo Unit.</th>
+                                <th>Custo Total</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resumo de Custos -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <span>Resumo de Custos</span>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">Rendimento Real</small>
+                    <div class="fs-4 fw-bold" id="resumoRendimento">-</div>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">Custo Total da Receita</small>
+                    <div class="fs-4 fw-bold text-primary" id="resumoCustoTotal">R$ 0,00</div>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">Custo por Unidade</small>
+                    <div class="fs-4 fw-bold text-success" id="resumoCustoUnitario">R$ 0,00</div>
+                </div>
+                <hr>
+                <a href="/produtos/novo" class="btn btn-success w-100" id="btnPrecificar" style="display: none;">
+                    <i class="bi bi-tag me-2"></i>Precificar Produto
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Adicionar Insumo -->
+<div class="modal fade" id="modalAddInsumo" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Adicionar Insumo à Receita</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Insumo *</label>
+                    <select class="form-select" id="selectInsumo" required>
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Quantidade *</label>
+                        <input type="number" step="0.01" class="form-control" id="quantidadeInsumo" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Unidade *</label>
+                        <select class="form-select" id="unidadeInsumo" required>
+                            <option value="g">Grama (g)</option>
+                            <option value="kg">Quilograma (kg)</option>
+                            <option value="ml">Mililitro (ml)</option>
+                            <option value="L">Litro (L)</option>
+                            <option value="unidade">Unidade</option>
+                            <option value="colher_sopa">Colher de Sopa</option>
+                            <option value="colher_cha">Colher de Chá</option>
+                            <option value="xicara">Xícara</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="addInsumoToReceita()">Adicionar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let receitaData = null;
+let insumosDisponiveis = [];
+let receitaId = document.getElementById('receitaId').value;
+
+// Carregar dados se for edição
+async function loadReceita() {
+    if (receitaId) {
+        const response = await fetch(`/api/receitas/${receitaId}`);
+        receitaData = await response.json();
+        
+        document.getElementById('nome').value = receitaData.nome;
+        document.getElementById('categoria').value = receitaData.categoria || '';
+        document.getElementById('rendimento_teorico').value = receitaData.rendimento_teorico;
+        document.getElementById('perda_percentual').value = receitaData.perda_percentual;
+        document.getElementById('tempo_preparo').value = receitaData.tempo_preparo || 0;
+        
+        document.getElementById('cardInsumos').style.display = 'block';
+        document.getElementById('btnPrecificar').style.display = 'block';
+        renderInsumosReceita(receitaData.insumos);
+        updateResumo();
+    }
+}
+
+// Carregar insumos disponíveis
+async function loadInsumosDisponiveis() {
+    const response = await fetch('/api/insumos');
+    insumosDisponiveis = await response.json();
+    const select = document.getElementById('selectInsumo');
+    select.innerHTML = '<option value="">Selecione...</option>' + 
+        insumosDisponiveis.map(i => `<option value="${i.id}">${i.nome} (médio: R$ ${i.custo_unitario_medio.toFixed(4)} | último: R$ ${i.custo_unitario_ultimo.toFixed(4)})</option>`).join('');
+}
+
+// Salvar receita
+document.getElementById('formReceita').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const data = {
+        nome: document.getElementById('nome').value,
+        categoria: document.getElementById('categoria').value,
+        rendimento_teorico: document.getElementById('rendimento_teorico').value,
+        perda_percentual: document.getElementById('perda_percentual').value,
+        tempo_preparo: document.getElementById('tempo_preparo').value
+    };
+    
+    const url = receitaId ? `/api/receitas/${receitaId}` : '/api/receitas';
+    const method = receitaId ? 'PUT' : 'POST';
+    
+    const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+        if (!receitaId) {
+            window.location.href = `/receitas/${result.id}/editar`;
+        } else {
+            loadReceita();
+        }
+    }
+});
+
+// Adicionar insumo à receita
+async function addInsumoToReceita() {
+    const data = {
+        insumo_id: document.getElementById('selectInsumo').value,
+        quantidade: document.getElementById('quantidadeInsumo').value,
+        unidade: document.getElementById('unidadeInsumo').value
+    };
+    
+    await fetch(`/api/receitas/${receitaId}/insumos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    
+    bootstrap.Modal.getInstance(document.getElementById('modalAddInsumo')).hide();
+    loadReceita();
+    document.getElementById('selectInsumo').value = '';
+    document.getElementById('quantidadeInsumo').value = '';
+}
+
+// Renderizar insumos da receita
+function renderInsumosReceita(insumos) {
+    const tbody = document.querySelector('#tableInsumosReceita tbody');
+    tbody.innerHTML = insumos.map(i => `
+        <tr>
+            <td>${i.nome}</td>
+            <td>${i.quantidade}</td>
+            <td>${i.unidade}</td>
+            <td>R$ ${i.custo_unitario.toFixed(4)}</td>
+            <td>R$ ${i.custo_total.toFixed(2)}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-danger" onclick="removeInsumo(${i.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Remover insumo
+async function removeInsumo(insumoId) {
+    if (!confirm('Remover este insumo da receita?')) return;
+    await fetch(`/api/receitas/${receitaId}/insumos/${insumoId}`, { method: 'DELETE' });
+    loadReceita();
+}
+
+// Atualizar resumo
+function updateResumo() {
+    if (receitaData) {
+        document.getElementById('resumoRendimento').textContent = receitaData.rendimento_real + ' unidades';
+        document.getElementById('resumoCustoTotal').textContent = 'R$ ' + receitaData.custo_total.toFixed(2);
+        document.getElementById('resumoCustoUnitario').textContent = 'R$ ' + receitaData.custo_unitario.toFixed(2);
+    }
+}
+
+// Inicializar
+loadInsumosDisponiveis();
+if (receitaId) loadReceita();
+</script>
+{% endblock %}

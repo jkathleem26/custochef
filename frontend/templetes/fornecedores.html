@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Fornecedores - Custo Chef{% endblock %}
+{% block page_title %}Fornecedores{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header">
+        <span><i class="bi bi-truck me-2"></i><span id="fornecedorFormTitle">Novo Fornecedor</span></span>
+    </div>
+    <div class="card-body">
+        <form id="formFornecedor" class="row g-3">
+            <input type="hidden" id="fornecedorId">
+            <div class="col-md-6">
+                <label class="form-label">Nome</label>
+                <input type="text" class="form-control" id="nome" placeholder="Nome da empresa ou vendedor" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">CNPJ</label>
+                <input type="text" class="form-control" id="cnpj" placeholder="Opcional">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">E-mail</label>
+                <input type="email" class="form-control" id="email" placeholder="contato@empresa.com">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Telefone</label>
+                <input type="text" class="form-control" id="telefone" placeholder="Telefone ou WhatsApp">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Cidade</label>
+                <input type="text" class="form-control" id="cidade" placeholder="Cidade">
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">UF</label>
+                <input type="text" class="form-control" id="estado" maxlength="2" placeholder="CE">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Observações</label>
+                <textarea class="form-control" id="observacoes" rows="3" placeholder="Prazo, pedido mínimo, condições comerciais..."></textarea>
+            </div>
+            <div class="col-12 text-end d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary" id="cancelFornecedorEdit" style="display: none;">Cancelar edição</button>
+                <button type="submit" class="btn btn-primary">Salvar Fornecedor</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span><i class="bi bi-list-ul me-2"></i>Fornecedores Cadastrados</span>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Contato</th>
+                        <th>Localização</th>
+                        <th width="140">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="listaFornecedores"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let fornecedoresData = [];
+
+async function carregarFornecedores() {
+    const res = await fetch('/api/fornecedores');
+    fornecedoresData = await res.json();
+    const tbody = document.getElementById('listaFornecedores');
+
+    tbody.innerHTML = fornecedoresData.map(fornecedor => `
+        <tr>
+            <td><strong>${fornecedor.nome}</strong><br><small class="text-muted">${fornecedor.cnpj || 'Sem CNPJ'}</small></td>
+            <td>${fornecedor.telefone || '--'}<br>${fornecedor.email || ''}</td>
+            <td>${fornecedor.cidade || '--'}${fornecedor.estado ? ' - ' + fornecedor.estado : ''}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editFornecedor(${fornecedor.id})">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deletarFornecedor(${fornecedor.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+
+    if (!fornecedoresData.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Nenhum fornecedor cadastrado.</td></tr>';
+    }
+}
+
+function resetFornecedorForm() {
+    document.getElementById('formFornecedor').reset();
+    document.getElementById('fornecedorId').value = '';
+    document.getElementById('fornecedorFormTitle').textContent = 'Novo Fornecedor';
+    document.getElementById('cancelFornecedorEdit').style.display = 'none';
+}
+
+async function editFornecedor(id) {
+    const res = await fetch(`/api/fornecedores/${id}`);
+    const fornecedor = await res.json();
+
+    document.getElementById('fornecedorId').value = fornecedor.id;
+    document.getElementById('nome').value = fornecedor.nome || '';
+    document.getElementById('cnpj').value = fornecedor.cnpj || '';
+    document.getElementById('email').value = fornecedor.email || '';
+    document.getElementById('telefone').value = fornecedor.telefone || '';
+    document.getElementById('cidade').value = fornecedor.cidade || '';
+    document.getElementById('estado').value = fornecedor.estado || '';
+    document.getElementById('observacoes').value = fornecedor.observacoes || '';
+    document.getElementById('fornecedorFormTitle').textContent = 'Editar Fornecedor';
+    document.getElementById('cancelFornecedorEdit').style.display = 'inline-block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.getElementById('formFornecedor').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const fornecedorId = document.getElementById('fornecedorId').value;
+    const dados = {
+        nome: document.getElementById('nome').value,
+        cnpj: document.getElementById('cnpj').value,
+        email: document.getElementById('email').value,
+        telefone: document.getElementById('telefone').value,
+        cidade: document.getElementById('cidade').value,
+        estado: document.getElementById('estado').value,
+        observacoes: document.getElementById('observacoes').value
+    };
+
+    const res = await fetch(fornecedorId ? `/api/fornecedores/${fornecedorId}` : '/api/fornecedores', {
+        method: fornecedorId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados)
+    });
+
+    if (res.ok) {
+        resetFornecedorForm();
+        carregarFornecedores();
+    }
+});
+
+async function deletarFornecedor(id) {
+    if (!confirm('Tem certeza que deseja remover este fornecedor?')) return;
+    const res = await fetch(`/api/fornecedores/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+        if (document.getElementById('fornecedorId').value === String(id)) {
+            resetFornecedorForm();
+        }
+        carregarFornecedores();
+    }
+}
+
+document.getElementById('cancelFornecedorEdit').addEventListener('click', resetFornecedorForm);
+
+carregarFornecedores();
+</script>
+{% endblock %}

@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if venda_id else 'Nova' }} Venda - Custo Chef{% endblock %}
+{% block page_title %}{{ 'Editar' if venda_id else 'Nova' }} Venda{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <span><i class="bi bi-cart-plus me-2"></i>{{ 'Editar Venda' if venda_id else 'Registrar Venda' }}</span>
+            </div>
+            <div class="card-body">
+                <form id="formVenda">
+                    <input type="hidden" id="vendaId" value="{{ venda_id or '' }}">
+
+                    <div class="mb-3">
+                        <label class="form-label" for="produto_id">Produto</label>
+                        <select class="form-select" id="produto_id" required>
+                            <option value="">Selecione um produto...</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="quantidade">Quantidade</label>
+                        <input class="form-control" type="number" id="quantidade" value="1" min="1" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="forma_pagamento">Forma de Pagamento</label>
+                        <select class="form-select" id="forma_pagamento" required>
+                            <option value="Pix">Pix</option>
+                            <option value="Cartão de Crédito">Cartão de Crédito</option>
+                            <option value="Cartão de Débito">Cartão de Débito</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                        </select>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="tem_entrega">
+                        <label class="form-check-label" for="tem_entrega">Possui entrega?</label>
+                    </div>
+
+                    <div id="campo_frete" class="mb-3 d-none">
+                        <label class="form-label" for="valor_entrega">Valor do Frete (R$)</label>
+                        <input class="form-control" type="number" id="valor_entrega" value="0" step="0.01">
+                    </div>
+
+                    <div class="price-card mb-4">
+                        <small>Total da Venda</small>
+                        <h2 id="display_total">R$ 0,00</h2>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <a href="/vendas" class="btn btn-outline w-50">Cancelar</a>
+                        <button type="submit" class="btn btn-primary w-50" id="submitVendaLabel">Finalizar Venda</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let produtosCache = [];
+const vendaId = document.getElementById('vendaId').value;
+
+async function carregarProdutos() {
+    try {
+        const res = await fetch('/api/produtos');
+        produtosCache = await res.json();
+        const select = document.getElementById('produto_id');
+
+        produtosCache.forEach(produto => {
+            const option = document.createElement('option');
+            option.value = produto.id;
+            option.textContent = `${produto.nome} (R$ ${produto.preco_venda.toFixed(2)})`;
+            option.dataset.preco = produto.preco_venda;
+            select.appendChild(option);
+        });
+
+        if (vendaId) {
+            await carregarVenda();
+            document.getElementById('submitVendaLabel').textContent = 'Salvar Alterações';
+        }
+    } catch (err) {
+        console.error('Erro ao carregar produtos:', err);
+    }
+}
+
+async function carregarVenda() {
+    const res = await fetch(`/api/vendas/${vendaId}`);
+    const venda = await res.json();
+
+    document.getElementById('produto_id').value = venda.produto_id;
+    document.getElementById('quantidade').value = venda.quantidade;
+    document.getElementById('forma_pagamento').value = venda.forma_pagamento || 'Pix';
+    document.getElementById('tem_entrega').checked = !!venda.tem_entrega;
+    document.getElementById('valor_entrega').value = venda.valor_entrega || 0;
+
+    if (venda.tem_entrega) {
+        document.getElementById('campo_frete').classList.remove('d-none');
+    }
+
+    atualizarTotal();
+}
+
+function atualizarTotal() {
+    const select = document.getElementById('produto_id');
+    const qtd = parseInt(document.getElementById('quantidade').value, 10) || 0;
+    const frete = parseFloat(document.getElementById('valor_entrega').value) || 0;
+
+    const selectedOption = select.options[select.selectedIndex];
+    const precoUnitario = selectedOption ? parseFloat(selectedOption.dataset.preco || 0) : 0;
+
+    const total = (precoUnitario * qtd) + frete;
+    document.getElementById('display_total').textContent = `R$ ${total.toFixed(2)}`;
+}
+
+document.getElementById('tem_entrega').addEventListener('change', function() {
+    const campoFrete = document.getElementById('campo_frete');
+    if (this.checked) {
+        campoFrete.classList.remove('d-none');
+    } else {
+        campoFrete.classList.add('d-none');
+        document.getElementById('valor_entrega').value = 0;
+    }
+    atualizarTotal();
+});
+
+document.getElementById('produto_id').addEventListener('change', atualizarTotal);
+document.getElementById('quantidade').addEventListener('input', atualizarTotal);
+document.getElementById('valor_entrega').addEventListener('input', atualizarTotal);
+
+document.getElementById('formVenda').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const dados = {
+        produto_id: document.getElementById('produto_id').value,
+        quantidade: document.getElementById('quantidade').value,
+        forma_pagamento: document.getElementById('forma_pagamento').value,
+        tem_entrega: document.getElementById('tem_entrega').checked,
+        valor_entrega: document.getElementById('valor_entrega').value || 0
+    };
+
+    try {
+        const res = await fetch(vendaId ? `/api/vendas/${vendaId}` : '/api/vendas', {
+            method: vendaId ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dados)
+        });
+
+        if (res.ok) {
+            window.location.href = '/vendas';
+        } else {
+            const errorData = await res.json();
+            alert('Erro ao salvar venda: ' + (errorData.error || 'Erro desconhecido'));
+        }
+    } catch (err) {
+        alert('Erro de conexão com o servidor.');
+    }
+});
+
+carregarProdutos();
+</script>
+{% endblock %}
